@@ -69,9 +69,10 @@ Run everything from a clean `main` that matches `origin/main`.
 
 1. **Check.** `npm ci && npm test && npm run typecheck` pass, and `docs/STATUS.json` is
    current.
-2. **Tag.** `node scripts/release.mjs X.Y.Z` bumps `package.json` and `package-lock.json`
-   (committing `Release vX.Y.Z` if the version changed) and creates an annotated tag.
-   Add `--dry-run` to see what it would do.
+2. **Tag.** `node scripts/release.mjs X.Y.Z` bumps `package.json` and `package-lock.json`,
+   points the formula's `url` at the new tag with a placeholder `sha256` (so the tagged
+   tree passes the drift test), commits all three as `Release vX.Y.Z`, and creates an
+   annotated tag. Add `--dry-run` to see what it would do.
 3. **Push.** `git push origin vX.Y.Z`, then `git push origin main` if there was a bump.
 4. **Hash.** `node scripts/release.mjs X.Y.Z --formula` downloads the tag's archive, hashes
    it and writes the `url` and `sha256` lines in `Formula/cq.rb`. It exits non-zero if the

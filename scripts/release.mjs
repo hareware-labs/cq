@@ -100,12 +100,27 @@ function updateVersions(version, dryRun) {
   return { changed: true };
 }
 
-function commitVersionBump(tag, dryRun) {
+// The formula's url moves with the version in the same commit, so the tagged
+// tree passes the url/version drift test. Its sha256 can't be known until the
+// tag is pushed; --formula fills it in.
+const PLACEHOLDER_SHA256 = '0'.repeat(64);
+
+function pointFormulaAt(tag, dryRun) {
+  const url = archiveUrlFor(tag);
   if (dryRun) {
-    console.log(`would run: git commit -m "Release ${tag}" package.json package-lock.json`);
+    console.log(`would point Formula/cq.rb at ${url} with a placeholder sha256`);
     return;
   }
-  git(['add', 'package.json', 'package-lock.json']);
+  writeFileSync(FORMULA, withFormulaUrlAndSha(readFileSync(FORMULA, 'utf8'), url, PLACEHOLDER_SHA256));
+  console.log(`pointed Formula/cq.rb at ${url}`);
+}
+
+function commitVersionBump(tag, dryRun) {
+  if (dryRun) {
+    console.log(`would run: git commit -m "Release ${tag}" package.json package-lock.json Formula/cq.rb`);
+    return;
+  }
+  git(['add', 'package.json', 'package-lock.json', 'Formula/cq.rb']);
   git(['commit', '-m', `Release ${tag}`]);
   console.log(`committed: Release ${tag}`);
 }
@@ -200,7 +215,10 @@ async function tagRelease({ version, tag, dryRun }) {
   checkTagAbsent(tag);
 
   const { changed } = updateVersions(version, dryRun);
-  if (changed) commitVersionBump(tag, dryRun);
+  if (changed) {
+    pointFormulaAt(tag, dryRun);
+    commitVersionBump(tag, dryRun);
+  }
 
   createTag(tag, dryRun);
   printTagSteps({ tag, version, dryRun });
