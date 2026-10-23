@@ -1,6 +1,6 @@
 {
   "name": "cq",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Usage-aware supervisor for Claude Code: a persistent task queue that parks on rate limits and resumes automatically.",
   "keywords": [
     "claude",
