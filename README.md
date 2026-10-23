@@ -39,15 +39,14 @@ Node 22+, the Claude Code CLI, and a **Claude subscription** (Pro or Max) signed
 in. cq is built around subscription usage windows. On API-key billing there's no
 window to wait for, so the main feature does nothing.
 
-Homebrew's the easier path, but the tap doesn't exist yet — no release has
-shipped:
+With Homebrew, once the first release has shipped:
 
 ```bash
-brew tap hareware-labs/tap
 brew install hareware-labs/tap/cq
 ```
 
-Until then, clone it:
+That taps `hareware-labs/homebrew-tap` on first use and pulls in Node. Until the first
+release, or to run from source, clone it:
 
 ```bash
 git clone https://github.com/hareware-labs/cq.git
@@ -224,8 +223,10 @@ days, then resumes" is asserted in milliseconds.
 
 ## Status
 
-v0.1. I use it on my own repos. Issues and pull requests welcome at
-[github.com/hareware-labs/cq](https://github.com/hareware-labs/cq).
+v0.1. I use it on my own repos. Bug reports and agreed changes are welcome; read
+[CONTRIBUTING.md](CONTRIBUTING.md) first, and use
+[Discussions](https://github.com/hareware-labs/cq/discussions) for questions and ideas.
+Security problems go through [SECURITY.md](SECURITY.md).
 
 ## Why "cq"
 

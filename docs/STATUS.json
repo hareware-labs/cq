@@ -1,7 +1,7 @@
 {
   "$comment": "Build progress for cq itself. If a build of this repo is interrupted, resume from here. Honesty rules: 'tested' means a fixture-driven automated test asserts it; 'smoke_tested' means it was run once against the real CLI by hand; 'untested' means it exists and typechecks but nothing verifies it.",
   "version": 1,
-  "updated_at": "2026-09-09T00:00:00Z",
+  "updated_at": "2026-10-22T00:00:00Z",
   "cli_verified_against": "2.1.261 (Claude Code)",
   "node_verified_against": "v25.2.1 locally; Node 22 in CI",
   "platform_verified_on": "darwin 25.4.0 arm64",
@@ -103,7 +103,8 @@
     "the CLAUDE.md protocol snippet was detected and the protocol was NOT re-sent (real prompt was 268 characters)",
     "cq plan against the real Opus CLI on examples/city-builder.prompt.md: 20 tasks, $0.9076, one call",
     "cq daemon install / status / uninstall (plist written, read back, removed)",
-    "capability probe confirmed cost-free: with no prompt the CLI errors before reaching the API"
+    "capability probe confirmed cost-free: with no prompt the CLI errors before reaching the API",
+    "Homebrew formula from a local tap and a git-archive tarball (Homebrew 7.0.9, macOS arm64): brew install, brew test and brew audit --strict all pass; only commander is vendored"
   ],
   "untested": [
     "cq daemon start/stop under launchd end to end — install, status and uninstall were exercised, but a long-lived agent surviving a real reboot was not",
@@ -114,7 +115,9 @@
     "Node versions other than 22 (CI) and 25 (local). engines declares >=22 and CI proves 22; nothing verifies 20 or 21.",
     "Windows: nothing outside notify and daemon is platform-specific, but only darwin (local) and Linux (CI container) have actually run the suite.",
     "--parallel against the live CLI: the pool is unit-tested and the CLI wiring is asserted, but no real multi-task concurrent run has been made.",
-    "The --permission-mode passthrough: wired and visible in --help, but only bypassPermissions has actually been exercised end to end."
+    "The --permission-mode passthrough: wired and visible in --help, but only bypassPermissions has actually been exercised end to end.",
+    "Installing from the real hareware-labs/homebrew-tap with a real GitHub tag archive: no release has been cut yet",
+    "scripts/release.mjs has no automated tests; its --dry-run and the --formula failure path were run by hand"
   ],
   "known_limitations": [
     "--max-turns is undocumented in the CLI's --help. cq probes for it and falls back to --max-budget-usd, but a silent removal would reduce turn capping to a dollar cap only.",
