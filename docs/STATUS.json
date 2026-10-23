@@ -104,7 +104,9 @@
     "cq plan against the real Opus CLI on examples/city-builder.prompt.md: 20 tasks, $0.9076, one call",
     "cq daemon install / status / uninstall (plist written, read back, removed)",
     "capability probe confirmed cost-free: with no prompt the CLI errors before reaching the API",
-    "Homebrew formula from a local tap and a git-archive tarball (Homebrew 7.0.9, macOS arm64): brew install, brew test and brew audit --strict all pass; only commander is vendored"
+    "Homebrew formula from a local tap and a git-archive tarball (Homebrew 7.0.9, macOS arm64): brew install, brew test and brew audit --strict all pass; only commander is vendored",
+    "v1.0.0 from the real tap: the GitHub tag archive hashes to the formula's sha256, brew install hareware-labs/tap/cq succeeds and brew test passes (Homebrew 7.0.9, macOS arm64, 2026-10-22)",
+    "scripts/release.mjs, both runs, end to end for v1.0.0: bump + formula url + tag, then --formula hashing the pushed archive"
   ],
   "untested": [
     "cq daemon start/stop under launchd end to end — install, status and uninstall were exercised, but a long-lived agent surviving a real reboot was not",
@@ -116,8 +118,7 @@
     "Windows: nothing outside notify and daemon is platform-specific, but only darwin (local) and Linux (CI container) have actually run the suite.",
     "--parallel against the live CLI: the pool is unit-tested and the CLI wiring is asserted, but no real multi-task concurrent run has been made.",
     "The --permission-mode passthrough: wired and visible in --help, but only bypassPermissions has actually been exercised end to end.",
-    "Installing from the real hareware-labs/homebrew-tap with a real GitHub tag archive: no release has been cut yet",
-    "scripts/release.mjs has no automated tests; its --dry-run and the --formula failure path were run by hand"
+    "scripts/release.mjs has no automated tests; it is exercised only by real releases and hand-run --dry-run"
   ],
   "known_limitations": [
     "--max-turns is undocumented in the CLI's --help. cq probes for it and falls back to --max-budget-usd, but a silent removal would reduce turn capping to a dollar cap only.",
