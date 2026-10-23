@@ -1,0 +1,128 @@
+{
+  "$comment": "Build progress for cq itself. If a build of this repo is interrupted, resume from here. Honesty rules: 'tested' means a fixture-driven automated test asserts it; 'smoke_tested' means it was run once against the real CLI by hand; 'untested' means it exists and typechecks but nothing verifies it.",
+  "version": 1,
+  "updated_at": "2026-09-09T00:00:00Z",
+  "cli_verified_against": "2.1.261 (Claude Code)",
+  "node_verified_against": "v25.2.1 locally; Node 22 in CI",
+  "platform_verified_on": "darwin 25.4.0 arm64",
+  "build_order": [
+    {
+      "step": "ARCHITECTURE.md",
+      "status": "done"
+    },
+    {
+      "step": "test harness with fake CLI",
+      "status": "done"
+    },
+    {
+      "step": "queue",
+      "status": "done"
+    },
+    {
+      "step": "runner + stream parser",
+      "status": "done"
+    },
+    {
+      "step": "limits + scheduler",
+      "status": "done"
+    },
+    {
+      "step": "cli",
+      "status": "done"
+    },
+    {
+      "step": "inbox/notify",
+      "status": "done"
+    },
+    {
+      "step": "plan",
+      "status": "done"
+    },
+    {
+      "step": "launchd",
+      "status": "done"
+    },
+    {
+      "step": "docs",
+      "status": "done"
+    }
+  ],
+  "tests": {
+    "command": "npm test",
+    "total": 105,
+    "passing": 105,
+    "failing": 0,
+    "spends_real_usage": false,
+    "files": {
+      "test/limits.test.js": 15,
+      "test/queue.test.js": 12,
+      "test/stream.test.js": 20,
+      "test/scheduler.test.js": 32,
+      "test/plan.test.js": 6,
+      "test/daemon.test.js": 5,
+      "test/inbox.test.js": 11,
+      "test/formula.test.js": 4
+    }
+  },
+  "tested": [
+    "rate_limit_event normalisation: camelCase (as the CLI emits), snake_case (as the brief specified), seconds and milliseconds",
+    "classify(): allowed, allowed_warning, rejected, soft utilization threshold, seven_day, overage, unknown status, unknown rate_limit_type",
+    "classifyExit(): limit signature on a non-zero exit; no false positive on a clean exit",
+    "napFor(): grace, clamping, capped naps for multi-day parks, no busy-loop on a near reset",
+    "PARKED -> sleep to resets_at + 60s -> resume via --resume with the reported session_id",
+    "allowed_warning finishes the running task and parks before starting the next",
+    "seven-day park: notifies once, naps in capped chunks, total sleep lands on the reset",
+    "crash isolation: retried 3x with exponential backoff, then failed; daemon exits cleanly",
+    "max_turns: requeued exactly once with a hand-off note and the previous session id; never given more turns",
+    "a parked run is not charged an attempt",
+    "dependency gating, ordering, and transitive blocking of a failed task's dependents",
+    "crash reconciliation: a task left running is recovered and resumed, without an attempt charge",
+    "a persisted park survives a restart; --force overrides it",
+    "inbox: escalation from a summary, answering, unblocking, answer reaching the next prompt",
+    "recommendation ingestion bounded by depth (1 generation) and width (5 per run)",
+    "stream parser: byte-at-a-time chunking, truncated final line, malformed JSON, unknown event types, arrays and scalars rejected as events",
+    "argv construction: --verbose always present with stream-json, model always explicit, capability gating drops unsupported flags",
+    "context files: path traversal refused, directories refused, truncation reported in-band, backtick fences cannot be broken out of",
+    "queue: validation messages, cycle detection, atomic writes, advisory lock acquire/break/release semantics",
+    "plan: extraction from fenced/bare/prose responses, id renumbering, dependency remapping, clamping, repair notes",
+    "launchd plist: XML escaping, KeepAlive/ThrottleInterval/RunAtLoad, per-repo labelling",
+    "notify: no-op off darwin, never throws, AppleScript escaping, per-key dedupe window",
+    "--parallel N: pool fills to N, respects dependency chains, and a park drains in-flight work rather than abandoning it",
+    "cq run --parallel is wired from the CLI through to the Scheduler (regression test asserts the wiring itself, which was previously missing)",
+    "a timeout is never reclassified as a rate limit, even when the killed process mentions one",
+    "an AbortController already aborted before runTask is called still kills the child",
+    "a symlink inside the repo pointing outside it is refused by readContextFiles",
+    "a park detected while draining concurrent runs is persisted to status.json",
+    "an exit-signature park (no reset time) renders no countdown rather than one from 1970",
+    "numeric CLI options reject non-numbers and out-of-range values instead of silently becoming NaN",
+    "Formula/cq.rb parses, its class name matches the file name, its url version matches package.json, and its sha256 is 64-char hex"
+  ],
+  "smoke_tested": [
+    "cq init / add / run / status / inbox / inbox answer / logs / doctor against the real CLI in a scratch git repo",
+    "one real task on Sonnet: created a file, committed as `cq: t-001 hello.txt`, reported $0.0756 / 3 turns",
+    "the CLAUDE.md protocol snippet was detected and the protocol was NOT re-sent (real prompt was 268 characters)",
+    "cq plan against the real Opus CLI on examples/city-builder.prompt.md: 20 tasks, $0.9076, one call",
+    "cq daemon install / status / uninstall (plist written, read back, removed)",
+    "capability probe confirmed cost-free: with no prompt the CLI errors before reaching the API"
+  ],
+  "untested": [
+    "cq daemon start/stop under launchd end to end — install, status and uninstall were exercised, but a long-lived agent surviving a real reboot was not",
+    "a real seven-day rate limit — only the fixture path is verified; no seven-day window was actually exhausted",
+    "a real overage rejection — same",
+    "resuming a session that the CLI has since expired or garbage-collected",
+    "concurrent cq processes in the same repo racing for the lock (the lock is unit-tested; a real race is not)",
+    "Node versions other than 22 (CI) and 25 (local). engines declares >=22 and CI proves 22; nothing verifies 20 or 21.",
+    "Windows: nothing outside notify and daemon is platform-specific, but only darwin (local) and Linux (CI container) have actually run the suite.",
+    "--parallel against the live CLI: the pool is unit-tested and the CLI wiring is asserted, but no real multi-task concurrent run has been made.",
+    "The --permission-mode passthrough: wired and visible in --help, but only bypassPermissions has actually been exercised end to end."
+  ],
+  "known_limitations": [
+    "--max-turns is undocumented in the CLI's --help. cq probes for it and falls back to --max-budget-usd, but a silent removal would reduce turn capping to a dollar cap only.",
+    "Limit detection from a non-zero exit is a heuristic on stderr text. A task whose own output discusses rate limits can trigger a needless park. It is labelled `detected_by: exit_signature` in status.json and overridable with `cq run --force`.",
+    "Only `five_hour` was observable on the account used for development. seven_day_opus, seven_day_sonnet and overage are handled by prefix and by the unknown-type fallback, but were never seen live.",
+    "The spend ledger buckets by the five-hour window's reset time. Runs that report no rate_limit_event land in an `unknown` bucket.",
+    "Every task runs with --permission-mode bypassPermissions unless `cq run --permission-mode` overrides it. This is disclosed in the README, but it is the largest real-world risk the tool carries: an unattended agent with no prompts, in your repo, under your account.",
+    "Recommended tasks come from model output that has read the task's context_files, so text in a read file can influence what gets queued. Bounded to one generation and five tasks, queued behind the human's ordering, and disableable with --no-recommend."
+  ],
+  "next_if_resuming": null
+}

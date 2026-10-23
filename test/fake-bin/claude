@@ -1,0 +1,128 @@
+#!/usr/bin/env node
+/**
+ * Fake `claude` binary for cq's test harness.
+ *
+ * Put this directory first on PATH and point CQ_FAKE_DIR at a scratch directory
+ * containing `scenario.json`:
+ *
+ *   { "steps": [ { "fixture": "rejected.jsonl", "exit": 1, "stderr": "..." },
+ *                { "fixture": "success.jsonl",  "exit": 0 } ],
+ *     "default": { "fixture": "success.jsonl", "exit": 0 } }
+ *
+ * Each invocation consumes the next step (falling back to `default`, then to a
+ * bare success), replays the fixture's lines to stdout, writes `stderr`, and
+ * exits with `exit`. Every invocation is appended to `invocations.jsonl` with the
+ * full argv, cwd and stdin, so tests can assert on exactly which flags cq passed.
+ *
+ * This never contacts the network and never spends usage. That is the point.
+ */
+import { readFileSync, writeFileSync, appendFileSync, existsSync, openSync, closeSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+const dir = process.env.CQ_FAKE_DIR;
+if (!dir) {
+  process.stderr.write('fake claude: CQ_FAKE_DIR is not set\n');
+  process.exit(64);
+}
+
+const argv = process.argv.slice(2);
+
+// --version / --help are answered without consuming a step, because cq probes
+// capabilities at startup and those probes must not eat scenario steps.
+if (argv.includes('--version') || argv.includes('-v')) {
+  process.stdout.write('2.1.261 (Claude Code)\n');
+  process.exit(0);
+}
+if (argv.includes('--help') || argv.includes('-h')) {
+  process.stdout.write('Usage: claude [options] [command] [prompt]\n  -p, --print\n  --verbose\n  --output-format <format>\n  --model <model>\n  -r, --resume [value]\n  --max-budget-usd <amount>\n');
+  process.exit(0);
+}
+
+// Unknown-flag rejection, mirroring the real CLI's commander behaviour. The
+// harness only knows the flags cq is allowed to use; anything else is a bug in cq.
+const KNOWN = new Set([
+  '-p', '--print', '--verbose', '--output-format', '--model', '-r', '--resume',
+  '--max-turns', '--max-budget-usd', '--permission-mode', '--allowedTools',
+  '--allowed-tools', '--disallowedTools', '--disallowed-tools', '--add-dir',
+  '--append-system-prompt', '--session-id', '--settings', '--fork-session',
+  '--tools', '--json-schema', '--no-session-persistence',
+]);
+for (const a of argv) {
+  if (a.startsWith('-') && !KNOWN.has(a)) {
+    process.stderr.write(`error: unknown option '${a}'\n`);
+    process.exit(1);
+  }
+}
+
+// The real CLI rejects a promptless --print run during argument handling, before any
+// API call. Emulating that keeps capability probes from consuming a scenario step --
+// and mirrors the fact that such a probe costs the user nothing.
+const flagsTakingValue = new Set(['--output-format', '--model', '-r', '--resume',
+  '--max-turns', '--max-budget-usd', '--permission-mode', '--allowedTools',
+  '--allowed-tools', '--add-dir', '--append-system-prompt', '--session-id',
+  '--settings', '--tools', '--json-schema', '--disallowedTools', '--disallowed-tools']);
+const positionals = [];
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i].startsWith('-')) { if (flagsTakingValue.has(argv[i])) i++; continue; }
+  positionals.push(argv[i]);
+}
+if (positionals.length === 0) {
+  process.stderr.write('Error: Input must be provided either through stdin or as a prompt argument when using --print\n');
+  process.exit(1);
+}
+
+const readStdin = () => {
+  try { return readFileSync(0, 'utf8'); } catch { return ''; }
+};
+const stdin = process.stdin.isTTY ? '' : readStdin();
+
+const scenarioPath = join(dir, 'scenario.json');
+const scenario = existsSync(scenarioPath)
+  ? JSON.parse(readFileSync(scenarioPath, 'utf8'))
+  : { steps: [] };
+
+/**
+ * Claim the next scenario step atomically.
+ *
+ * A read-then-write cursor races when cq runs tasks concurrently (--parallel), so two
+ * invocations could be handed the same fixture and a test would flake roughly one run
+ * in five. Creating a per-index marker with O_EXCL makes the claim atomic: exactly one
+ * process can win each index.
+ */
+function claimIndex() {
+  for (let i = 0; i < 10_000; i++) {
+    try {
+      closeSync(openSync(join(dir, `cursor.${i}`), 'wx'));
+      return i;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+    }
+  }
+  throw new Error('fake claude: ran out of scenario steps');
+}
+const cursor = claimIndex();
+
+appendFileSync(join(dir, 'invocations.jsonl'), JSON.stringify({
+  n: cursor, argv, cwd: process.cwd(), stdin,
+  env_model: process.env.ANTHROPIC_MODEL ?? null,
+}) + '\n');
+
+const step = scenario.steps?.[cursor] ?? scenario.default ?? { fixture: 'success.jsonl', exit: 0 };
+
+if (step.delay_ms) {
+  // Busy-free sleep so tests can exercise timeouts deterministically.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, step.delay_ms);
+}
+
+if (step.fixture) {
+  const fixtureDir = process.env.CQ_FAKE_FIXTURES
+    ?? resolve(new URL('../fixtures', import.meta.url).pathname);
+  let body = readFileSync(join(fixtureDir, step.fixture), 'utf8');
+  // Let a scenario pin the session id so resume chains can be asserted.
+  if (step.session_id) body = body.replace(/"sess-[a-z0-9]+"/g, `"${step.session_id}"`);
+  process.stdout.write(body);
+}
+if (step.stdout_extra) process.stdout.write(step.stdout_extra);
+if (step.stderr) process.stderr.write(step.stderr);
+
+process.exit(step.exit ?? 0);

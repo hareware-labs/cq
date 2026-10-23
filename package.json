@@ -1,0 +1,49 @@
+{
+  "name": "cq",
+  "version": "0.1.0",
+  "description": "Usage-aware supervisor for Claude Code: a persistent task queue that parks on rate limits and resumes automatically.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "rate-limit",
+    "queue",
+    "agent",
+    "cli",
+    "automation"
+  ],
+  "homepage": "https://github.com/hareware-labs/cq",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hareware-labs/cq.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hareware-labs/cq/issues"
+  },
+  "type": "module",
+  "bin": {
+    "cq": "./bin/cq.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^20.14.0"
+  },
+  "license": "MIT"
+}

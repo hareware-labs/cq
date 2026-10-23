@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","cwd":"/tmp/target","session_id":"sess-ms","tools":["Bash","Read","Edit","Write"],"mcp_servers":[],"model":"claude-sonnet-5","permissionMode":"bypassPermissions","slash_commands":[],"apiKeySource":"none","claude_code_version":"2.1.261","output_style":"default","agents":[],"skills":[],"plugins":[],"uuid":"u-init-sess-ms","memory_paths":[],"some_future_field":{"nested":true}}
+{"type":"rate_limit_event","session_id":"sess-ms","rate_limit_info":{"status":"rejected","resetsAt":1788570000000,"rateLimitType":"five_hour","utilization":1}}

@@ -1,0 +1,504 @@
+{
+  "version": 1,
+  "defaults": {
+    "model": "sonnet",
+    "max_turns": 40
+  },
+  "tasks": [
+    {
+      "id": "t-001",
+      "title": "Write ARCHITECTURE.md",
+      "prompt": "This is an empty repo that will become a Cities: Skylines II-class city builder using Three.js (latest release) + Vite with plain ES modules. Write ARCHITECTURE.md at the repo root as the single design document every later task reads. It must specify: (a) folder layout, one folder per subsystem under src/ — terrain, environment, roads, zoning, buildings, props, traffic, effects, simulation, tools, ui, audio, demo — plus src/core for shared code; (b) the shared world data model (tile grid, road graph, zone cells, building instances, agents) with field names and types; (c) the public API every module must expose — export a factory `createX(world, ctx)` returning `{ init(), update(dt), dispose(), showcase() }` — and the events each module emits on a shared event bus; (d) units: metres, +Y up, right-handed, 8 m tile size; (e) determinism: all randomness via a single seeded RNG passed in ctx, never Math.random; (f) performance budget: >=50 fps at 1080p, <=1500 draw calls, instanced meshes for anything repeated; (g) asset policy: CC0 only (Poly Haven, ambientCG) or procedural, no downloaded copyrighted assets; (h) failure isolation: the module registry wraps init/update in try/catch, disables a throwing module, logs the error, and the app keeps running. Keep it concrete and under ~400 lines. Write only ARCHITECTURE.md. Commit as `cq: t-001 ARCHITECTURE.md`.",
+      "context_files": [
+        "ARCHITECTURE.md"
+      ],
+      "depends_on": [],
+      "priority": 1,
+      "model": "opus",
+      "max_turns": 30,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-002",
+      "title": "Vite app skeleton, core module registry and event bus",
+      "prompt": "Scaffold the app for a Three.js city builder described in ARCHITECTURE.md (read it first; it defines folder layout, the module API, units, determinism and failure isolation). Create: package.json with Vite and the latest three as the only runtime deps, index.html, vite.config.js, and src/main.js. Implement src/core/registry.js (registers modules, calls init/update/dispose, wraps each call in try/catch so a throwing module is disabled and logged while the app keeps running), src/core/events.js (tiny synchronous event bus: on/off/emit), src/core/world.js (the shared world data model from ARCHITECTURE.md, plain data, no rendering), src/core/rng.js (seeded mulberry32-style RNG), src/core/renderer.js (WebGLRenderer, ACES tone mapping, sRGB output, PerspectiveCamera, orbit-style camera controls, resize handling, render loop with fixed-timestep simulation and variable render). main.js must parse URL query params `?showcase=<moduleName>`, `?preset=<cameraPreset>`, `?time=<hours>` and set `window.__APP_READY = true` plus `window.__APP_STATS = { fps, drawCalls, errors }` once the first frames have rendered. With no modules registered the app must still boot to a working canvas. Verify `npm run build` succeeds. Commit as `cq: t-002 app skeleton`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "package.json",
+        "index.html",
+        "vite.config.js",
+        "src/main.js",
+        "src/core/registry.js",
+        "src/core/events.js",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/core/renderer.js"
+      ],
+      "depends_on": [
+        "t-001"
+      ],
+      "priority": 1,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-003",
+      "title": "Headless screenshot + metrics harness",
+      "prompt": "Build the verification loop for a Three.js city builder before any feature work. The app is a Vite project whose entry is src/main.js; it sets `window.__APP_READY = true` and `window.__APP_STATS = { fps, drawCalls, errors }` once rendering has started, and accepts URL query params `?showcase=<moduleName>`, `?preset=<cameraPreset>`, `?time=<hours>`. Add puppeteer as a devDependency and write tools/shot.js, a Node CLI: `node tools/shot.js --showcase terrain --preset aerial --time 14 --out shots/terrain-aerial-14.png`. It must start (or reuse) the Vite dev server, open headless Chrome at 1920x1080 with WebGL enabled, navigate with the query params, wait for `window.__APP_READY` with a timeout, let the scene settle a few seconds, then write the PNG plus a sibling `.json` log containing captured console errors/warnings, page errors, measured fps and draw calls, and the URL used. Exit non-zero on page errors or timeout. Also write tools/shoot-all.js which takes a list of showcase names and captures each at times 8, 13 and 21 into shots/. Document usage in tools/README.md. Verify by actually running tools/shot.js against the current app and confirming a PNG and JSON are produced. Commit as `cq: t-003 screenshot harness`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/main.js",
+        "package.json",
+        "tools/shot.js",
+        "tools/shoot-all.js",
+        "tools/README.md"
+      ],
+      "depends_on": [
+        "t-002"
+      ],
+      "priority": 1,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-004",
+      "title": "Terrain module",
+      "prompt": "Implement the terrain subsystem for a Three.js city builder in src/terrain/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createTerrain(world, ctx)` returning `{ init, update, dispose, showcase }`), the world data model, units (metres, +Y up, 8 m tiles) and the seeded-RNG determinism rule (use ctx.rng, never Math.random). Build: deterministic multi-octave noise heightfield over a ~2 km x 2 km area with plausible hills, valleys and a river carved by a flow-like erosion pass; a chunked LOD mesh so the whole map is a handful of draw calls; a splat-blended PBR ground material mixing grass, dirt, rock and sand driven by slope and height, with normal and roughness maps generated procedurally (no copyrighted textures); a water surface for the river with depth-based colour and a screen-space-ish reflection or cheap planar reflection; and `world.sampleHeight(x, z)` plus `world.sampleSlope(x, z)` exported into the shared world object for other modules. `showcase()` must stage a representative terrain-only scene. Verify with the screenshot harness: `node tools/shot.js --showcase terrain --preset aerial --time 13` and also at time 8 and 21; open the PNGs and confirm the terrain reads as photographic, not programmer art, and that the JSON log has zero console errors. If a core change is needed, do not make it — append the request to .cq/inbox.md under `## Needs human`. Commit as `cq: t-004 terrain module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/terrain/index.js"
+      ],
+      "depends_on": [
+        "t-003"
+      ],
+      "priority": 1,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-005",
+      "title": "Environment: sky, sun, weather and shadows",
+      "prompt": "Implement the environment subsystem for a Three.js city builder in src/environment/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createEnvironment(world, ctx)` returning `{ init, update, dispose, showcase }`), units and the seeded-RNG rule. Build: a physically plausible sky (Rayleigh/Mie atmospheric scattering) driven by a time-of-day clock in hours with a matching directional sun whose colour, intensity and elevation track the time; a night sky with stars and a moon; cascaded or well-tuned PCF-soft shadow maps sized for a 2 km map with no visible acne or peter-panning; image-based lighting generated from the sky each time step (PMREM) so materials pick up correct ambient; exponential height fog / aerial perspective that gives distant terrain atmospheric depth; and simple weather states (clear, overcast, light rain) that adjust sun intensity, fog density and sky turbidity. Expose `setTimeOfDay(hours)` and `setWeather(name)` on the module and honour the app's `?time=` query param. `showcase()` stages a lit reference scene (ground plane plus a few primitives) to read the lighting. Verify with the screenshot harness at times 6, 13, 19 and 22 and confirm by looking at the PNGs that dawn, noon, dusk and night each read plausibly, with zero console errors in the JSON logs. If a core change is needed, append the request to .cq/inbox.md under `## Needs human` instead of making it. Commit as `cq: t-005 environment module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/events.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/environment/index.js"
+      ],
+      "depends_on": [
+        "t-004"
+      ],
+      "priority": 1,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-006",
+      "title": "Roads: graph, mesh generation and markings",
+      "prompt": "Implement the roads subsystem for a Three.js city builder in src/roads/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createRoads(world, ctx)` returning `{ init, update, dispose, showcase }`), the road-graph data model, units (metres, +Y up) and the seeded-RNG rule. Build: a road graph of nodes and segments supporting straight and curved (spline) segments; road types (alley, two-lane street, four-lane avenue, highway) with per-type width, lane count and speed; procedural mesh generation that ribbons a road along its spline, conforms to terrain height via `world.sampleHeight(x, z)`, and generates curbs, sidewalks and a shoulder; intersection geometry that stitches 3- and 4-way junctions without z-fighting or gaps; lane-marking and crosswalk decals via a generated texture atlas; and a lane-centreline graph exported on the world object for the traffic module to drive on (`world.roads.lanes`). Everything instanced or merged to stay within the draw-call budget. `showcase()` stages a small grid of streets, one avenue, a curve and a 4-way intersection on terrain. Verify with the screenshot harness at aerial and street-level presets at times 13 and 21; look at the PNGs and confirm the surfaces, markings and junctions read as believable asphalt, with zero console errors. If a core change is needed, append it to .cq/inbox.md under `## Needs human` rather than making it. Commit as `cq: t-006 roads module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/roads/index.js"
+      ],
+      "depends_on": [
+        "t-005"
+      ],
+      "priority": 1,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-007",
+      "title": "Simulation: economy, growth demand and time",
+      "prompt": "Implement the simulation subsystem for a Three.js city builder in src/simulation/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createSimulation(world, ctx)` returning `{ init, update, dispose, showcase }`), the world data model, the event bus and the seeded-RNG rule (ctx.rng only — the whole simulation must be reproducible from a seed). Build: a fixed-timestep tick with a game clock (minutes, hours, days) and adjustable speed (pause, 1x, 3x, 9x) that emits `time:changed` with the hour so the environment module can follow it; population, jobs, and residential/commercial/industrial demand curves that respond to available zoned land, road access and services; a simple budget (income from taxes, upkeep per road segment and building) with monthly settlement; per-cell land value derived from proximity to roads, water, parks and pollution; and events emitted on the shared bus for `sim:tick`, `sim:demand`, `sim:budget`, `sim:landvalue`. Pure data only — no rendering in this module. Include a tiny deterministic self-check script or test that runs 1000 ticks from a fixed seed twice and asserts identical results. `showcase()` renders a minimal on-screen readout of the current sim state so it can be screenshotted. Verify with the screenshot harness and confirm zero console errors. If a core change is needed, append it to .cq/inbox.md under `## Needs human`. Commit as `cq: t-007 simulation module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/events.js",
+        "src/core/rng.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/simulation/index.js"
+      ],
+      "depends_on": [
+        "t-006"
+      ],
+      "priority": 1,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-008",
+      "title": "UI shell and HUD",
+      "prompt": "Implement the UI subsystem for a Three.js city builder in src/ui/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createUI(world, ctx)` returning `{ init, update, dispose, showcase }`) and the event bus. Build a DOM-overlay HUD (no UI framework, plain ES modules and CSS) in the visual language of a modern city builder — restrained, dark, translucent panels, good typography, no default browser widgets: a top bar with money, population and date; a speed control (pause / 1x / 3x / 9x) that emits `ui:speed`; a bottom toolbar of tool categories (road, zone, service, bulldoze, query) that emits `ui:tool` with the selected tool id and highlights the active one; a right-hand info panel that shows the currently hovered or selected thing when the app emits `ui:selection`; a demand bar widget (R/C/I) that listens for `sim:demand`; and a toast/notification area listening for `ui:notify`. It must read live values from `sim:tick` and `sim:budget` events and degrade gracefully to placeholder values when the simulation module is absent. Ensure the overlay never blocks camera drags outside panels. `showcase()` stages the HUD over a neutral background. Verify with the screenshot harness at 1920x1080, look at the PNG and confirm the HUD reads as polished product UI rather than debug text, with zero console errors. Commit as `cq: t-008 ui module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/events.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/ui/index.js"
+      ],
+      "depends_on": [
+        "t-007"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-009",
+      "title": "Audio and post-processing effects",
+      "prompt": "Implement two subsystems for a Three.js city builder, each in its own folder: src/audio/ and src/effects/. Do not edit files outside those folders except to register both modules in src/main.js. Read ARCHITECTURE.md for the module API (`createAudio(world, ctx)` / `createEffects(world, ctx)` each returning `{ init, update, dispose, showcase }`), the event bus and the performance budget. Audio: a WebAudio graph with a master bus and gain-controlled sub-buses for ambience, traffic and UI; procedurally synthesised or CC0-only sources (no copyrighted audio) — a wind/城 ambience bed that crossfades with time of day and weather from `time:changed`, a distance-attenuated traffic hum driven by nearby road density, and short UI click/confirm/error sounds on `ui:tool` and `ui:notify`. Audio must start muted until a user gesture and must never throw in a headless browser with no audio device. Effects: an EffectComposer post chain — SMAA or FXAA, subtle SSAO or GTAO, bloom tuned so only genuinely bright things bloom, screen-space god rays or a light-shaft approximation at low sun angles, filmic tone mapping and a mild colour grade, plus a slight vignette and chromatic aberration at the edges — all individually toggleable via a settings object and cheap enough to hold 50 fps at 1080p. `showcase()` for effects stages a high-contrast scene that demonstrates the chain on/off. Verify with the screenshot harness at times 8, 13 and 21; look at the PNGs to confirm the post chain adds depth without a hazy or over-bloomed look, and confirm the JSON logs show zero console errors and fps within budget. Commit as `cq: t-009 audio and effects modules`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/events.js",
+        "src/core/renderer.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/audio/index.js",
+        "src/effects/index.js"
+      ],
+      "depends_on": [
+        "t-008"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-010",
+      "title": "Integration pass over wave one",
+      "prompt": "You are the integrator for a Three.js city builder. The terrain, environment, roads, simulation, ui, audio and effects modules have each been built in isolation by separate sessions; you are the only one allowed to change src/core/ and src/main.js. Read ARCHITECTURE.md first. Then: check .cq/inbox.md for core-change requests filed by module authors and apply the reasonable ones to src/core/, updating ARCHITECTURE.md if the contract changes; register all seven modules in src/main.js in dependency order and make sure the registry's failure isolation actually works (temporarily throw from one module's init and confirm the app still renders); fix the seams — event names that don't match between emitter and listener, modules reading `world` fields that nobody populates, the environment clock not driven by the simulation clock, effects composer not seeing the modules' meshes, double-registered resize or render loops; and make sure the render order and the shared render target work with the post chain enabled. Then run the full app (no `?showcase=`) through the screenshot harness at times 8, 13 and 21, look at the PNGs, and fix whatever is broken in core or the seams. Do not rewrite module internals; if a module is fundamentally broken, note it in .cq/inbox.md under `## Needs human` with the specific symptom. Record what you changed in a short `## Wave 1 integration` section of ARCHITECTURE.md. Commit as `cq: t-010 wave one integration`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        ".cq/inbox.md",
+        "src/main.js",
+        "src/core/registry.js",
+        "src/core/events.js",
+        "src/core/world.js",
+        "src/core/renderer.js",
+        "tools/README.md"
+      ],
+      "depends_on": [
+        "t-009"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-011",
+      "title": "Zoning module",
+      "prompt": "Implement the zoning subsystem for a Three.js city builder in src/zoning/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createZoning(world, ctx)` returning `{ init, update, dispose, showcase }`), the world data model, 8 m tile units and the seeded-RNG rule. Build: a zone-cell grid aligned to the road network — cells are generated by walking each road segment's lane graph (`world.roads.lanes`) and laying out lots of a few standard depths on both sides, so zoning only exists where there is road frontage; zone types (low/high-density residential, commercial, industrial, office, park) each with a colour and density; a subtly rendered zone overlay (translucent coloured cells with soft edges, visible only when a zoning tool is active, emitted via the `ui:tool` event) that never looks like flat programmer-art squares in normal play; per-lot metadata — frontage direction, lot size, land value from the simulation's `sim:landvalue` event, and a `level` that grows over time — exposed on `world.zoning.lots` for the buildings module to consume; and API methods `zoneRect(x0,z0,x1,z1,type)` and `unzone(...)`. `showcase()` stages a few streets with a full mix of zone types applied and the overlay on. Verify with the screenshot harness at aerial and street presets, look at the PNGs, and confirm zero console errors in the JSON logs. If a core change is needed, append it to .cq/inbox.md under `## Needs human`. Commit as `cq: t-011 zoning module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/events.js",
+        "src/roads/index.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/zoning/index.js"
+      ],
+      "depends_on": [
+        "t-010"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-012",
+      "title": "Buildings: procedural generation and PBR materials",
+      "prompt": "Implement the buildings subsystem for a Three.js city builder in src/buildings/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createBuildings(world, ctx)` returning `{ init, update, dispose, showcase }`), the performance budget (<=1500 draw calls, instancing mandatory) and the seeded-RNG rule (ctx.rng only, so a given lot always grows the same building). Build a procedural building generator that reads lots from `world.zoning.lots` and produces, per zone type and level, believable massing: suburban houses with pitched roofs, garages and gardens; mid-rise mixed-use blocks with ground-floor shopfronts, awnings and upper-floor windows; office and residential towers with setbacks, cores, parapets, rooftop plant and antennae; industrial sheds with loading bays. Materials must be photographic PBR — procedurally generated albedo/normal/roughness/metalness for brick, render, concrete, glass and metal cladding, with correct window glass (reflective by day) and emissive interiors that switch on at dusk from the `time:changed` event so the city is alive at night. Use InstancedMesh or merged geometry per material so a few thousand buildings stay within budget, plus a distance LOD that drops to simple boxes with a facade texture. `showcase()` stages one street of each zone type at several levels. Verify with the screenshot harness at street level and aerial, at times 13 and 21; look at the PNGs and confirm the buildings read as photographic architecture and that the night shot shows lit windows, with zero console errors. If a core change is needed, append it to .cq/inbox.md under `## Needs human`. Commit as `cq: t-012 buildings module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/core/events.js",
+        "src/zoning/index.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/buildings/index.js"
+      ],
+      "depends_on": [
+        "t-011"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-013",
+      "title": "Props: street furniture, vegetation and lighting",
+      "prompt": "Implement the props subsystem for a Three.js city builder in src/props/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createProps(world, ctx)` returning `{ init, update, dispose, showcase }`), the performance budget (instancing mandatory) and the seeded-RNG rule. Build a prop scattering system that places, deterministically and without intersecting roads or buildings: street trees along sidewalks with several species, wind-swayed foliage and seasonal-ish colour variation; grass and shrub scatter on unzoned terrain, density-mapped and faded out with distance; street lights along roads with emissive lamp heads and cheap pooled point lights that switch on at dusk from `time:changed`; and the small stuff that sells a city — traffic signals at intersections, road signs, bus shelters, benches, bins, hydrants, utility poles, parked cars in driveways and along kerbs. Everything must use InstancedMesh with per-instance colour/scale jitter, frustum-aware chunking and a distance LOD so tens of thousands of props stay inside the draw-call budget. Vegetation must use alpha-tested cards or low-poly meshes with proper normals so it does not read as cardboard. `showcase()` stages a lit street with trees, lights and furniture. Verify with the screenshot harness at street level and aerial at times 13 and 21; look at the PNGs and confirm the props read as photographic and that street lights genuinely illuminate at night, with zero console errors. If a core change is needed, append it to .cq/inbox.md under `## Needs human`. Commit as `cq: t-013 props module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/core/events.js",
+        "src/roads/index.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/props/index.js"
+      ],
+      "depends_on": [
+        "t-012"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-014",
+      "title": "Traffic: agents, pathfinding and vehicle rendering",
+      "prompt": "Implement the traffic subsystem for a Three.js city builder in src/traffic/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createTraffic(world, ctx)` returning `{ init, update, dispose, showcase }`), the fixed-timestep rule, the performance budget and the seeded-RNG rule. Build: agents that path over the lane graph at `world.roads.lanes` using A* with a cached path pool, spawning from residential lots and routing to commercial/industrial lots in response to the simulation's demand; car-following (IDM-style) with safe headway, smooth lane changes at junctions, stopping at intersections with a simple traffic-light or give-way policy, and queue formation so congestion looks real; pedestrians walking sidewalks at lower density; and rendering via InstancedMesh vehicle variants (hatchback, saloon, van, bus, truck) with per-instance colour, correct wheel placement, working brake lights and headlights that switch on at dusk from `time:changed`, plus emissive headlight cones or light streaks at night. Cap agent count and LOD out distant vehicles to hold 50 fps and stay in the draw-call budget. `showcase()` stages a small road network with a few hundred vehicles flowing through intersections. Verify with the screenshot harness at street level and aerial at times 13 and 21; look at the PNGs and confirm vehicles sit in lanes, respect intersections and light up at night, with zero console errors. If a core change is needed, append it to .cq/inbox.md under `## Needs human`. Commit as `cq: t-014 traffic module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/core/events.js",
+        "src/roads/index.js",
+        "src/simulation/index.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/traffic/index.js"
+      ],
+      "depends_on": [
+        "t-013"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-015",
+      "title": "Build tools: road drawing, zoning and bulldoze",
+      "prompt": "Implement the build-tools subsystem for a Three.js city builder in src/tools/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createTools(world, ctx)` returning `{ init, update, dispose, showcase }`) and the event bus. Build the interactive editing layer that turns the existing modules into a playable game: raycast picking against the terrain and against roads/buildings, with a snapping grid and snapping to existing road nodes; a road tool that drags out straight and curved segments with a live ghost preview, shows length and cost, colours the preview red when the placement is invalid (too steep, overlapping, unaffordable) and commits to the roads module on release; a zoning tool that paints and rectangle-drags zone types onto the zoning module with a live overlay; a bulldoze tool with hover highlight and confirm-on-click that removes roads, zones and buildings; and a query tool that emits `ui:selection` with details of whatever was clicked. All tools driven by the `ui:tool` event from the HUD, with Escape cancelling, undo/redo for at least the last 20 actions, and cost checks against the simulation budget. `showcase()` stages the tools with a scripted ghost preview visible so it can be screenshotted. Verify with the screenshot harness — capture the road-tool ghost preview and the zoning overlay — look at the PNGs and confirm the previews read cleanly, with zero console errors. If a core change is needed, append it to .cq/inbox.md under `## Needs human`. Commit as `cq: t-015 build tools module`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/events.js",
+        "src/roads/index.js",
+        "src/zoning/index.js",
+        "src/simulation/index.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/tools/index.js"
+      ],
+      "depends_on": [
+        "t-014"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-016",
+      "title": "Integration pass over wave two",
+      "prompt": "You are the integrator for a Three.js city builder. The zoning, buildings, props, traffic and build-tools modules have each been built in isolation by separate sessions on top of an already-integrated terrain/environment/roads/simulation/ui/audio/effects base. You are the only one allowed to change src/core/ and src/main.js. Read ARCHITECTURE.md first, including its `## Wave 1 integration` section. Then: apply the reasonable core-change requests filed in .cq/inbox.md and update ARCHITECTURE.md if a contract changes; register all twelve modules in src/main.js in dependency order and confirm the registry's failure isolation still holds; fix the seams — zoning lots not appearing where roads exist, buildings not consuming `world.zoning.lots`, traffic not finding `world.roads.lanes`, props intersecting buildings, the tools module's edits not invalidating the dependent modules' caches (make road/zone edits emit invalidation events that zoning, buildings, props and traffic listen for and rebuild from), dusk lighting not switching on consistently across buildings, props and traffic, and draw-call blowups from unmerged geometry. Run the full app through the screenshot harness at times 8, 13 and 21 at aerial and street presets, look at the PNGs, and fix what is broken in core or at the seams. Do not rewrite module internals; note any fundamentally broken module in .cq/inbox.md under `## Needs human` with the specific symptom. Record what you changed in a `## Wave 2 integration` section of ARCHITECTURE.md. Commit as `cq: t-016 wave two integration`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        ".cq/inbox.md",
+        "src/main.js",
+        "src/core/registry.js",
+        "src/core/events.js",
+        "src/core/world.js",
+        "src/core/renderer.js",
+        "tools/README.md"
+      ],
+      "depends_on": [
+        "t-015"
+      ],
+      "priority": 2,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-017",
+      "title": "Performance pass to budget",
+      "prompt": "Bring a Three.js city builder to its performance budget: >=50 fps at 1080p with <=1500 draw calls, as specified in ARCHITECTURE.md. The app has terrain, environment, roads, zoning, buildings, props, traffic, tools, ui, audio and effects modules; the screenshot harness at tools/shot.js reports measured fps and draw calls in its JSON log. First measure: run the full app at aerial and street presets at times 13 and 21 and record the actual fps, draw calls, triangle count and JS heap in docs/PERF.md as a before table. Then optimise, in this order, stopping when the budget is met: merge or instance anything issuing per-object draw calls; add or fix frustum culling and chunk-level culling; add distance LOD and hard cull distances for buildings, props and vehicles; cut shadow-map cost (cascade count, resolution, update frequency, and excluding tiny objects from the shadow pass); share materials and textures so the shader-program count is small; move per-frame allocations out of the update loops. You may touch any module's internals for performance but must not change any module's public API or visual intent — if an optimisation would visibly degrade a module, record it in docs/PERF.md and skip it. Re-measure and write the after table. Verify with the screenshot harness and confirm the PNGs still look the same as before the pass, with zero console errors. Commit as `cq: t-017 performance pass`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/main.js",
+        "src/core/renderer.js",
+        "tools/README.md",
+        "docs/PERF.md"
+      ],
+      "depends_on": [
+        "t-016"
+      ],
+      "priority": 3,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-018",
+      "title": "Demo city",
+      "prompt": "Build the demo city for a Three.js city builder in src/demo/ only — do not edit files outside that folder except to register the module in src/main.js. Read ARCHITECTURE.md for the module API (`createDemo(world, ctx)` returning `{ init, update, dispose, showcase }`) and the seeded-RNG rule (a fixed seed, so the demo city is byte-identical every load). Using only the public APIs of the existing modules, generate and populate a city of a few thousand buildings that reads as a real place: a dense downtown core of towers on a tight grid near the river, a mixed-use midtown ring, suburban cul-de-sacs and curved streets on the hills, an industrial district near the highway, a highway with on/off ramps around the edge, parks and a waterfront, and bridges where roads cross the river. Zone appropriately, let the buildings module grow the lots, seed traffic, and set an opening camera on a cinematic view of downtown at golden hour. Add named camera presets — `aerial`, `downtown`, `street`, `suburb`, `waterfront`, `highway` — selectable via the app's `?preset=` query param so the screenshot harness can frame them. Loading must be chunked/async with a progress indicator so the page never hangs. Verify with the screenshot harness: capture all six presets at times 8, 13, 19 and 21, look at every PNG, and confirm the city reads as a coherent place with zero console errors and fps within budget. Commit as `cq: t-018 demo city`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "src/core/world.js",
+        "src/core/rng.js",
+        "src/roads/index.js",
+        "src/zoning/index.js",
+        "src/buildings/index.js",
+        "src/traffic/index.js",
+        "src/main.js",
+        "tools/README.md",
+        "src/demo/index.js"
+      ],
+      "depends_on": [
+        "t-017"
+      ],
+      "priority": 3,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-019",
+      "title": "Art-direction review of the whole game (one round)",
+      "prompt": "You are a demanding AAA art director reviewing a Three.js city builder. You write NO code and change no source files — your only output is the report described below. The app has terrain, environment, roads, zoning, buildings, props, traffic, tools, ui, audio and effects modules plus a demo city, and a screenshot harness at tools/shot.js documented in tools/README.md. Take your own screenshots: the demo city at all six camera presets (`aerial`, `downtown`, `street`, `suburb`, `waterfront`, `highway`) at times 8, 13, 19 and 21, plus each module's `?showcase=` view. Actually look at every PNG. For each module and for the game as a whole, judge against real Cities: Skylines II reference imagery on this scale: 10 = indistinguishable from CS2, 8.5 = AAA with nits, 7 = good indie, 5 = programmer art. Pass = >=8.5 with zero console errors and fps within the ARCHITECTURE.md budget. Also check each module actually exposes the API ARCHITECTURE.md specifies, and read the JSON logs for console errors and measured fps/draw calls. Write docs/STATUS.json with, per module and for the whole game: the score, whether it passed, the measured fps and draw calls, the console errors seen, and a ranked list of specific, actionable issues (worst first) that a builder session could fix — reference the screenshot filename for each issue. Also write a short docs/REVIEW.md summarising the state in prose. Never inflate a score; report the real numbers, what failed and what is still missing. Do exactly one review round — do not fix anything and do not re-review. Commit as `cq: t-019 art direction review`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "tools/README.md",
+        "docs/PERF.md",
+        "docs/STATUS.json",
+        "docs/REVIEW.md"
+      ],
+      "depends_on": [
+        "t-018"
+      ],
+      "priority": 3,
+      "model": "opus",
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    },
+    {
+      "id": "t-020",
+      "title": "Blind A/B comparison harness and README",
+      "prompt": "Build the final comparison harness and project documentation for a Three.js city builder. Read ARCHITECTURE.md and tools/README.md (the existing screenshot harness at tools/shot.js takes `--showcase`, `--preset`, `--time` and `--out` and writes a PNG plus a JSON metrics log). Write tools/ab.js: it captures our demo city at a given camera preset and time, pairs each of our screenshots with a corresponding reference image the user has placed in `refs/` (do not download or commit any copyrighted reference images — read whatever is in refs/, and if the folder is empty or missing, say so clearly and exit cleanly with instructions on what to put there), and emits `ab/index.html` — a static page that shows each pair side by side labelled only A and B with the left/right order shuffled deterministically from a seed, with a hidden key written to `ab/key.json`, and a place for a judge to record which they preferred and why. It must never reveal which image is ours on the visible page. Then write README.md at the repo root: what the project is, how to install and run the dev server, how to run tools/shot.js and tools/shoot-all.js, how to run the blind A/B harness, the module layout and the rule that a module owns only its folder while core changes go through an integrator, the performance budget, the CC0-only asset policy, and where the current scores and open issues live (docs/STATUS.json, docs/REVIEW.md, docs/PERF.md). Verify tools/ab.js runs end to end with an empty refs/ and again with one placeholder image. Commit as `cq: t-020 A/B harness and README`.",
+      "context_files": [
+        "ARCHITECTURE.md",
+        "tools/README.md",
+        "docs/STATUS.json",
+        "docs/PERF.md",
+        "tools/ab.js",
+        "README.md"
+      ],
+      "depends_on": [
+        "t-019"
+      ],
+      "priority": 3,
+      "model": null,
+      "max_turns": 40,
+      "status": "queued",
+      "attempts": 0,
+      "session_id": null,
+      "result_summary": null,
+      "needs_human": []
+    }
+  ]
+}
