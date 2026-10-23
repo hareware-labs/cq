@@ -1,0 +1,53 @@
+name: Bug report
+description: cq did something wrong.
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `.cq/logs/*.jsonl` contain prompts, file contents and absolute paths. Paste only the
+        relevant events, and redact them.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The smallest tasks.json and commands that show it.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output of `cq status`, plus any relevant log lines
+      render: text
+  - type: input
+    id: cq-version
+    attributes:
+      label: cq version (`cq --version`)
+    validations:
+      required: true
+  - type: input
+    id: claude-version
+    attributes:
+      label: Claude Code version (`claude --version`)
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS and Node version
+      placeholder: macOS 26.4, Node 22.12
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed via
+      options: [Homebrew, git clone + npm link, other]
+    validations:
+      required: true

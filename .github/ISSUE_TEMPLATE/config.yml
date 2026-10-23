@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/hareware-labs/cq/discussions
+    about: Ask questions and float ideas in Discussions, not issues.
+  - name: Security vulnerability
+    url: https://github.com/hareware-labs/cq/security/advisories/new
+    about: Report privately. Never open a public issue for a security problem.

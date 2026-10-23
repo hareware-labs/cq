@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a change in behaviour. Wait for agreement before opening a pull request.
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like cq to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried or considered instead?
+  - type: checkboxes
+    id: deps
+    attributes:
+      label: Constraints
+      options:
+        - label: This doesn't need a new runtime dependency (or I've explained why it must).
